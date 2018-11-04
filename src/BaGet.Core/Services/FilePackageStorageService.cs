@@ -87,9 +87,15 @@ namespace BaGet.Core.Services
             var nuspecPath = NuspecPath(lowercasedId, lowercasedNormalizedVersion);
             var readmePath = ReadmePath(lowercasedId, lowercasedNormalizedVersion);
 
-            File.Delete(packagePath);
-            File.Delete(nuspecPath);
-            File.Delete(readmePath);
+            try
+            {
+                File.Delete(packagePath);
+                File.Delete(nuspecPath);
+                File.Delete(readmePath);
+            }
+            catch (DirectoryNotFoundException)
+            {
+            }
 
             return Task.CompletedTask;
         }
