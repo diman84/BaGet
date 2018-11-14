@@ -47,8 +47,8 @@ namespace BaGet.Core.Mirror
                 return uri;
             }
 
+            // TODO: This should merge results with the local packages.
             var upstreamPackages = await _upstreamFeed.GetAllMetadataOrNullAsync(id, cancellationToken);
-
 
             var result = upstreamPackages.Select(entry => new Package
             {
@@ -86,13 +86,16 @@ namespace BaGet.Core.Mirror
             }
 
             _logger.LogInformation(
-                "Package {PackageId} {PackageVersion{ does not exist locally. Mirroring...",
+                "Package {PackageId} {PackageVersion} does not exist locally. Indexing from upstream feed...",
                 id,
                 version);
 
             await IndexFromSourceAsync(id, version, cancellationToken);
 
-            _logger.LogInformation("Finished indexing {PackageId} from the upstream feed", id);
+            _logger.LogInformation(
+                "Finished indexing {PackageId} {PackageVersion} from the upstream feed",
+                id,
+                version);
         }
 
         private List<PackageDependency> FindDependencies(CatalogEntry entry)
