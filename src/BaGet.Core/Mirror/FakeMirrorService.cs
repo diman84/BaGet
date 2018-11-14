@@ -1,5 +1,7 @@
-﻿using System.Threading;
+﻿using System.Collections.Generic;
+using System.Threading;
 using System.Threading.Tasks;
+using BaGet.Core.Entities;
 using NuGet.Versioning;
 
 namespace BaGet.Core.Mirror
@@ -9,7 +11,12 @@ namespace BaGet.Core.Mirror
     /// </summary>
     public class FakeMirrorService : IMirrorService
     {
-        public Task MirrorAsync(string id, CancellationToken cancellationToken)
+        public Task<IReadOnlyList<Package>> FindUpstreamPackagesOrNullAsync(string id, CancellationToken cancellationToken)
+        {
+            return Task.FromResult<IReadOnlyList<Package>>(null);
+        }
+
+        public Task MirrorAsync(string id, NuGetVersion version, CancellationToken cancellationToken)
         {
             return Task.CompletedTask;
         }

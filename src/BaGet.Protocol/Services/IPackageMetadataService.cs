@@ -12,13 +12,23 @@ namespace BaGet.Protocol
     public interface IPackageMetadataService
     {
         /// <summary>
+        /// Get the metadata for each versions of a package from a remote NuGet feed.
+        /// </summary>
+        /// <param name="packageId">The package to look up</param>
+        /// <param name="cancellationToken">A token to cancel the lookup</param>
+        /// <returns>Metadata for each version of the package, or null if the package doesn't exist</returns>
+        Task<IReadOnlyList<CatalogEntry>> GetAllMetadataOrNullAsync(
+            string packageId,
+            CancellationToken cancellationToken = default);
+
+        /// <summary>
         /// Get all versions of a package from a remote NuGet feed.
         /// </summary>
         /// <param name="packageId">The package whose versions should be fetched.</param>
         /// <param name="includeUnlisted">Whether results should include unlisted versions.</param>
         /// <param name="cancellationToken">A token to cancel the operation.</param>
-        /// <returns>All versions for the package.</returns>
-        Task<IReadOnlyList<NuGetVersion>> GetAllVersionsAsync(
+        /// <returns>All versions for the package, or null if the package doesn't exist.</returns>
+        Task<IReadOnlyList<NuGetVersion>> GetAllVersionsOrNullAsync(
             string packageId,
             bool includeUnlisted = false,
             CancellationToken cancellationToken = default);

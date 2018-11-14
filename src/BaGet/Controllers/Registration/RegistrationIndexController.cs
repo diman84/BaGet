@@ -30,16 +30,22 @@ namespace BaGet.Controllers.Registration
         [HttpGet]
         public async Task<IActionResult> Get(string id, CancellationToken cancellationToken)
         {
-            // Allow read-through caching to happen if it is configured.
-            await _mirror.MirrorAsync(id, cancellationToken);
+            // Find the packages that match the given package id from the upstream, if
+            // one is configured. If these packages cannot be found on the upstream, or
+            // no upstream is configured, we'll return the local packages instead.
+            var packages = await _mirror.FindUpstreamPackagesOrNullAsync(id, cancellationToken);
 
-            var packages = await _packages.FindAsync(id);
-            var versions = packages.Select(p => p.Version).ToList();
+            if (packages == null)
+            {
+                packages = await _packages.FindAsync(id);
+            }
 
             if (!packages.Any())
             {
                 return NotFound();
             }
+
+            var versions = packages.Select(p => p.Version).ToList();
 
             // TODO: Paging of registration items.
             // "Un-paged" example: https://api.nuget.org/v3/registration3/newtonsoft.json/index.json
@@ -100,7 +106,7 @@ namespace BaGet.Controllers.Registration
                 var dependencyItems = package.Dependencies
                     .Where(d => d.TargetFramework == target)
                     .Where(d => d.Id != null && d.VersionRange != null)
-                    .Select(d => new DependencyItem(groupId, d.Id, d.VersionRange))
+                    .Select(d => new DependencyItem($"{groupId}/{d.Id}", d.Id, d.VersionRange))
                     .ToList();
 
                 groups.Add(new DependencyGroupItem(groupId, target, dependencyItems));

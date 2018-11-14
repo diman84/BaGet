@@ -1,7 +1,9 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using BaGet.Core.Entities;
 using BaGet.Core.Services;
 using BaGet.Protocol;
 using Microsoft.Extensions.Logging;
@@ -31,68 +33,148 @@ namespace BaGet.Core.Mirror
             _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         }
 
-        public async Task MirrorAsync(string id, CancellationToken cancellationToken)
+        public async Task<IReadOnlyList<Package>> FindUpstreamPackagesOrNullAsync(string id, CancellationToken cancellationToken)
         {
-            if (await _localPackages.ExistsAsync(id))
+            Uri ParseUri(string uriString)
+            {
+                if (uriString == null) return null;
+
+                if (!Uri.TryCreate(uriString, UriKind.Absolute, out var uri))
+                {
+                    return null;
+                }
+
+                return uri;
+            }
+
+            var upstreamPackages = await _upstreamFeed.GetAllMetadataOrNullAsync(id, cancellationToken);
+
+
+            var result = upstreamPackages.Select(entry => new Package
+            {
+                Id = entry.PackageId,
+                Version = entry.Version,
+                Authors = new[] { entry.Authors }, // TODO
+                Description = entry.Description,
+                Downloads = entry.Downloads,
+                HasReadme = entry.HasReadme,
+                Language = entry.Language,
+                Listed = entry.Listed,
+                MinClientVersion = entry.MinClientVersion,
+                Published = entry.Published,
+                RequireLicenseAcceptance = entry.RequireLicenseAcceptance,
+                Summary = entry.Summary,
+                Title = entry.Title,
+                IconUrl = ParseUri(entry.IconUrl),
+                LicenseUrl = ParseUri(entry.LicenseUrl),
+                ProjectUrl = ParseUri(entry.ProjectUrl),
+                RepositoryUrl = ParseUri(entry.RepositoryUrl),
+                RepositoryType = entry.RepositoryType,
+                Tags = entry.Tags.ToArray(),
+
+                Dependencies = FindDependencies(entry)
+            });
+
+            return result.ToList();
+        }
+
+        public async Task MirrorAsync(string id, NuGetVersion version, CancellationToken cancellationToken)
+        {
+            if (await _localPackages.ExistsAsync(id, version))
             {
                 return;
             }
 
-            _logger.LogInformation("Package {PackageId} does not exist locally. Mirroring...", id);
-
-            var versions = await _upstreamFeed.GetAllVersionsAsync(id, includeUnlisted: true);
-
             _logger.LogInformation(
-                "Found {VersionsCount} versions for package {PackageId} on upstream feed. Indexing...",
-                versions.Count,
-                id);
+                "Package {PackageId} {PackageVersion{ does not exist locally. Mirroring...",
+                id,
+                version);
 
-            // TODO: This will synchronously index packages one-by-one. This won't perform well
-            // for packages with many versions. Instead, this should index a few packages and
-            // let a background queue index the rest.
-            // See: https://docs.microsoft.com/en-us/aspnet/core/fundamentals/host/hosted-services?view=aspnetcore-2.1#queued-background-tasks
-            foreach (var version in versions)
-            {
-                var packageUri = await _upstreamFeed.GetPackageContentUriAsync(id, version);
-
-                await IndexFromSourceAsync(packageUri, cancellationToken);
-            }
+            await IndexFromSourceAsync(id, version, cancellationToken);
 
             _logger.LogInformation("Finished indexing {PackageId} from the upstream feed", id);
         }
 
-        private async Task IndexFromSourceAsync(Uri packageUri, CancellationToken cancellationToken)
+        private List<PackageDependency> FindDependencies(CatalogEntry entry)
+        {
+            if ((entry.DependencyGroups?.Count ?? 0) == 0)
+            {
+                return new List<PackageDependency>();
+            }
+
+            return entry.DependencyGroups
+                .SelectMany(FindDependenciesFromDependencyGroup)
+                .ToList();
+        }
+
+        private IEnumerable<PackageDependency> FindDependenciesFromDependencyGroup(DependencyGroupItem group)
+        {
+            if ((group.Dependencies?.Count ?? 0) == 0)
+            {
+                return new[]
+                {
+                    new PackageDependency
+                    {
+                        Id = null,
+                        VersionRange = null,
+                        TargetFramework = group.TargetFramework
+                    }
+                };
+            }
+
+            return group.Dependencies.Select(d => new PackageDependency
+            {
+                Id = d.Id,
+                VersionRange = d.Range,
+                TargetFramework = group.TargetFramework
+            });
+        }
+
+        private async Task IndexFromSourceAsync(string id, NuGetVersion version, CancellationToken cancellationToken)
         {
             cancellationToken.ThrowIfCancellationRequested();
 
-            _logger.LogInformation("Attempting to mirror package {PackageUri}...", packageUri);
+            _logger.LogInformation(
+                "Attempting to mirror package {PackageId} {PackageVersion}...",
+                id,
+                version);
 
             try
             {
+                var packageUri = await _upstreamFeed.GetPackageContentUriAsync(id, version);
+
                 using (var stream = await _downloader.DownloadOrNullAsync(packageUri, cancellationToken))
                 {
                     if (stream == null)
                     {
                         _logger.LogWarning(
-                            "Failed to download package at {PackageUri}",
-                            packageUri);
+                            "Failed to download package {PackageId} {PackageVersion}",
+                            id,
+                            version);
 
                         return;
                     }
 
-                    _logger.LogInformation("Downloaded package at {PackageUri}, indexing...", packageUri);
+                    _logger.LogInformation(
+                        "Downloaded package {PackageId} {PackageVersion}, indexing...",
+                        id,
+                        version);
 
                     var result = await _indexer.IndexAsync(stream, cancellationToken);
 
                     _logger.LogInformation(
-                        "Finished indexing package at {PackageUri} with result {Result}",
+                        "Finished indexing package {PackageId} {PackageVersion} with result {Result}",
                         packageUri,
                         result);
                 }
             }
             catch (Exception e)
             {
-                _logger.LogError(e, "Failed to mirror package at {PackageUri}", packageUri);
+                _logger.LogError(
+                    e,
+                    "Failed to mirror package {PackageId} {PackageVersion}",
+                    id,
+                    version);
             }
         }
     }

@@ -111,12 +111,12 @@ namespace BaGet.Protocol
         public DependencyGroupItem(
             string id,
             string targetFramework,
-            IReadOnlyList<DependencyItem> dependencyItems)
+            IReadOnlyList<DependencyItem> dependencies)
         {
             Id = id;
             Type = "PackageDependencyGroup";
             TargetFramework = targetFramework;
-            Dependencies = (dependencyItems?.Count > 0) ? dependencyItems : null;
+            Dependencies = (dependencies?.Count > 0) ? dependencies : null;
         }
 
         [JsonProperty(PropertyName = "@id")]
@@ -142,12 +142,12 @@ namespace BaGet.Protocol
         public string Id { get; }
         public string Range { get; }
 
-        public DependencyItem(string groupId, string depId, string versionRange)
+        public DependencyItem(string depId, string id, string range)
         {
-            DepId = groupId + "/" + depId;
+            DepId = depId;
             Type = "PackageDependency";
-            Id = depId;
-            Range = versionRange;
+            Id = id;
+            Range = range;
         }
     }
 }
