@@ -12,6 +12,17 @@ namespace BaGet.Core.Mirror
     public interface IMirrorService
     {
         /// <summary>
+        /// Attempt to find a package's versions from an upstream source.
+        /// </summary>
+        /// <param name="id">The package's id to lookup</param>
+        /// <param name="cancellationToken">The token to cancel the lookup</param>
+        /// <returns>
+        /// The package's versions on the upstream source, or null if the package cannot be found.
+        /// This includes unlisted versions.
+        /// </returns>
+        Task<IReadOnlyList<NuGetVersion>> FindUpstreamPackageVersionsOrNullAsync(string id, CancellationToken cancellationToken);
+
+        /// <summary>
         /// Attempt to find a package's metadata from an upstream source.
         /// </summary>
         /// <param name="id">The package's id to lookup</param>

@@ -24,16 +24,24 @@ namespace BaGet.Controllers
             _storage = storage ?? throw new ArgumentNullException(nameof(storage));
         }
 
-        public async Task<IActionResult> Versions(string id)
+        public async Task<IActionResult> Versions(string id, CancellationToken cancellationToken)
         {
-            var packages = await _packages.FindAsync(id);
+            // First, attempt to find all package versions using the upstream source.
+            var versions = await _mirror.FindUpstreamPackageVersionsOrNullAsync(id, cancellationToken);
 
-            if (!packages.Any())
+            if (versions == null)
             {
-                return NotFound();
-            }
+                // Fallback to the local packages if the package couldn't be found
+                // on the upstream source.
+                var packages = await _packages.FindAsync(id);
 
-            var versions = packages.Select(p => p.Version).ToList();
+                if (!packages.Any())
+                {
+                    return NotFound();
+                }
+
+                versions = packages.Select(p => p.Version).ToList();
+            }
 
             return Json(new PackageVersions(versions));
         }

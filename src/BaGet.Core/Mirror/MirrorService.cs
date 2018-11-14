@@ -33,6 +33,17 @@ namespace BaGet.Core.Mirror
             _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         }
 
+        public async Task<IReadOnlyList<NuGetVersion>> FindUpstreamPackageVersionsOrNullAsync(
+            string id,
+            CancellationToken cancellationToken)
+        {
+            // TODO: This should merge results with the local packages.
+            return await _upstreamFeed.GetAllVersionsOrNullAsync(
+                id,
+                includeUnlisted: true,
+                cancellationToken: cancellationToken);
+        }
+
         public async Task<IReadOnlyList<Package>> FindUpstreamPackagesOrNullAsync(string id, CancellationToken cancellationToken)
         {
             Uri ParseUri(string uriString)

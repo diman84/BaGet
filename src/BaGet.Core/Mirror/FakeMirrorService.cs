@@ -11,6 +11,11 @@ namespace BaGet.Core.Mirror
     /// </summary>
     public class FakeMirrorService : IMirrorService
     {
+        public Task<IReadOnlyList<NuGetVersion>> FindUpstreamPackageVersionsOrNullAsync(string id, CancellationToken cancellationToken)
+        {
+            return Task.FromResult<IReadOnlyList<NuGetVersion>>(null);
+        }
+
         public Task<IReadOnlyList<Package>> FindUpstreamPackagesOrNullAsync(string id, CancellationToken cancellationToken)
         {
             return Task.FromResult<IReadOnlyList<Package>>(null);
